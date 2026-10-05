@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Government Officer Portal</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="flag"></div>
+
+<section id="login" class="login">
+  <div class="hero">
+    <svg class="wheel" viewBox="0 0 100 100" aria-hidden="true"></svg>
+    <h1>Government Officer Portal</h1>
+    <p>One secure workspace for administrators and field officers to assign work, track progress and manage leave.</p>
+    <ul><li>Assign and track official tasks</li><li>Apply for and approve leave</li><li>Read department announcements</li></ul>
+  </div>
+  <form id="loginForm" class="box">
+    <h2>Sign in</h2>
+    <div class="tabs" id="roleTabs">
+      <button type="button" class="on" data-r="officer">Officer</button>
+      <button type="button" data-r="admin">Admin</button>
+    </div>
+    <label>Email<input name="email" type="email" required autocomplete="off"></label>
+    <label>Password<input name="password" type="password" required autocomplete="new-password"></label>
+    <p id="err" class="err" role="alert"></p>
+    <button class="btn">Sign in</button>
+    <p class="demo" id="demoNote" hidden>Preview mode: no server needed, and changes are saved only in this browser. Try admin@gov.in / Admin@123 or officer@gov.in / Officer@123.</p>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <aside id="side"></aside>
+  <main>
+    <header class="top"><button class="btn ghost sm" id="burger" aria-label="Menu">Menu</button><h2 id="title"></h2><span id="date"></span></header>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="modal" class="overlay" hidden></div>
+<div id="toast"></div>
+<script src="script.js"></script>
+</body>
+</html>
