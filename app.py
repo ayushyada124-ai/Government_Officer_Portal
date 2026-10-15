@@ -1,7 +1,7 @@
 """Government Officer Portal - Flask + MySQL (single folder).
 Run:  python app.py   then open http://localhost:5000
 """
-import os, functools
+import os, functools, threading
 import mysql.connector
 from flask import Flask, request, jsonify, g, abort, send_from_directory
 from flask_cors import CORS
@@ -15,21 +15,36 @@ CORS(app)
 ser = URLSafeTimedSerializer(os.getenv("SECRET_KEY", "change-this-secret"))
 CFG = dict(host=os.getenv("DB_HOST", "localhost"), user=os.getenv("DB_USER", "root"),
            password=os.getenv("DB_PASSWORD", ""), database=os.getenv("DB_NAME", "gov_portal"),
-           port=int(os.getenv("DB_PORT", "3306")))
+           port=int(os.getenv("DB_PORT", "3306")), connection_timeout=10)
 if os.getenv("DB_SSL_CA"):
     CFG["ssl_ca"] = os.getenv("DB_SSL_CA")
 
 
+_local = threading.local()
+
+
+def get_con():
+    """Keep one connection open and reuse it (opening a secure connection for every query is slow)."""
+    con = getattr(_local, "con", None)
+    if con is None:
+        con = mysql.connector.connect(autocommit=True, **CFG)
+        _local.con = con
+    return con
+
+
 def q(sql, args=(), one=False, commit=False):
-    con = mysql.connector.connect(**CFG)
-    cur = con.cursor(dictionary=True)
-    cur.execute(sql, args)
-    if commit:
-        con.commit(); out = cur.lastrowid
-    else:
-        out = cur.fetchone() if one else cur.fetchall()
-    cur.close(); con.close()
-    return out
+    for attempt in (1, 2):
+        try:
+            cur = get_con().cursor(dictionary=True)
+            try:
+                cur.execute(sql, args)
+                return cur.lastrowid if commit else (cur.fetchone() if one else cur.fetchall())
+            finally:
+                cur.close()
+        except (mysql.connector.OperationalError, mysql.connector.InterfaceError, OSError):
+            _local.con = None  # connection went stale: reconnect once and retry
+            if attempt == 2:
+                raise
 
 
 def cnt(sql, a=()):
@@ -46,10 +61,15 @@ def init_db():
         root.close()
         con = mysql.connector.connect(**CFG)
     cur = con.cursor()
-    for stmt in open(os.path.join(HERE, "schema.sql")).read().split(";"):
-        if stmt.strip():
-            cur.execute(stmt)
-    con.commit(); cur.close(); con.close()
+    names = ("users", "tasks", "leaves", "announcements", "attendance")
+    cur.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=%s AND table_name IN (%s,%s,%s,%s,%s)",
+                (CFG["database"],) + names)
+    if cur.fetchone()[0] < len(names):
+        for stmt in open(os.path.join(HERE, "schema.sql")).read().split(";"):
+            if stmt.strip():
+                cur.execute(stmt)
+        con.commit()
+    cur.close(); con.close()
     if not q("SELECT id FROM users LIMIT 1", one=True):
         seed = [("System Admin", "admin@gov.in", "Admin@123", "admin", "Administration", "Administrator"),
                 ("Rahul Sharma", "officer@gov.in", "Officer@123", "officer", "Revenue", "District Officer")]
@@ -135,15 +155,16 @@ def update_me():
 @auth()
 def stats():
     adm = g.user["role"] == "admin"
-    own, a = ("", ()) if adm else (" AND officer_id=%s", (g.user["id"],))
-    r = dict(tasks=cnt("SELECT COUNT(*) c FROM tasks WHERE 1=1" + own, a))
-    for key, s in (("pending", "Pending"), ("progress", "In Progress"), ("completed", "Completed")):
-        r[key] = cnt("SELECT COUNT(*) c FROM tasks WHERE status=%s" + own, (s,) + a)
-    r["pending_leaves"] = cnt("SELECT COUNT(*) c FROM leaves WHERE status='Pending'" + own, a)
+    w, a = ("", ()) if adm else (" WHERE officer_id=%s", (g.user["id"],))
+    t = q("SELECT COUNT(*) total, SUM(status='Pending') pending, SUM(status='In Progress') progress, "
+          "SUM(status='Completed') completed FROM tasks" + w, a, one=True)
+    l = q("SELECT COUNT(*) total, SUM(status='Pending') pending FROM leaves" + w, a, one=True)
+    r = dict(tasks=int(t["total"]), pending=int(t["pending"] or 0), progress=int(t["progress"] or 0),
+             completed=int(t["completed"] or 0), pending_leaves=int(l["pending"] or 0))
     if adm:
         r["officers"] = cnt("SELECT COUNT(*) c FROM users WHERE role='officer'")
     else:
-        r["leaves"] = cnt("SELECT COUNT(*) c FROM leaves WHERE 1=1" + own, a)
+        r["leaves"] = int(l["total"])
     return jsonify(r)
 
 
