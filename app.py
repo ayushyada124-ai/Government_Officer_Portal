@@ -16,6 +16,8 @@ ser = URLSafeTimedSerializer(os.getenv("SECRET_KEY", "change-this-secret"))
 CFG = dict(host=os.getenv("DB_HOST", "localhost"), user=os.getenv("DB_USER", "root"),
            password=os.getenv("DB_PASSWORD", ""), database=os.getenv("DB_NAME", "gov_portal"),
            port=int(os.getenv("DB_PORT", "3306")))
+if os.getenv("DB_SSL_CA"):
+    CFG["ssl_ca"] = os.getenv("DB_SSL_CA")
 
 
 def q(sql, args=(), one=False, commit=False):
@@ -35,10 +37,15 @@ def cnt(sql, a=()):
 
 
 def init_db():
-    con = mysql.connector.connect(**{k: v for k, v in CFG.items() if k != "database"})
+    try:
+        con = mysql.connector.connect(**CFG)
+    except mysql.connector.Error:
+        # database may not exist yet (local MySQL): create it, then connect again
+        root = mysql.connector.connect(**{k: v for k, v in CFG.items() if k != "database"})
+        root.cursor().execute(f"CREATE DATABASE IF NOT EXISTS `{CFG['database']}`")
+        root.close()
+        con = mysql.connector.connect(**CFG)
     cur = con.cursor()
-    cur.execute(f"CREATE DATABASE IF NOT EXISTS `{CFG['database']}`")
-    cur.execute(f"USE `{CFG['database']}`")
     for stmt in open(os.path.join(HERE, "schema.sql")).read().split(";"):
         if stmt.strip():
             cur.execute(stmt)
@@ -49,6 +56,18 @@ def init_db():
         for n, e, p, r, d, ds in seed:
             q("INSERT INTO users(name,email,password_hash,role,department,designation) VALUES(%s,%s,%s,%s,%s,%s)",
               (n, e, generate_password_hash(p), r, d, ds), commit=True)
+
+
+_ready = False
+
+
+@app.before_request
+def ensure_db():
+    """On hosted servers app.py is imported (not run), so create the tables on the first API call."""
+    global _ready
+    if not _ready and request.path.startswith("/api/"):
+        init_db()
+        _ready = True
 
 
 def auth(role=None):
@@ -71,7 +90,8 @@ def auth(role=None):
     return deco
 
 
-# Only these three files are served to the browser (app.py and schema.sql stay private).
+# Website files live in public/ (Vercel serves that folder itself; locally Flask serves it).
+PUBLIC = os.path.join(HERE, "public")
 PAGES = {"index.html", "style.css", "script.js"}
 
 
@@ -80,7 +100,7 @@ PAGES = {"index.html", "style.css", "script.js"}
 def page(name="index.html"):
     if name not in PAGES:
         abort(404)
-    return send_from_directory(HERE, name)
+    return send_from_directory(PUBLIC, name)
 
 
 @app.post("/api/login")
