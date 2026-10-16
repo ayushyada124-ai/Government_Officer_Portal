@@ -87,4 +87,4 @@ source code.
 Open your terminal and execute:
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone <https://github.com/ayushyada124-ai/Government_Officer_Portal>
