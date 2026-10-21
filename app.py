@@ -1,7 +1,7 @@
 """Government Officer Portal - Flask + MySQL (single folder).
 Run:  python app.py   then open http://localhost:5000
 """
-import os, functools, threading
+import os, functools, threading, time
 import mysql.connector
 from flask import Flask, request, jsonify, g, abort, send_from_directory
 from flask_cors import CORS
@@ -91,17 +91,22 @@ def ensure_db():
 
 
 def auth(role=None):
+    """Check the signed login token. The token carries the user id and role, so no database
+    query is needed here (one less round trip to MySQL on every request)."""
     def deco(f):
         @functools.wraps(f)
         def wrap(*a, **k):
             token = request.headers.get("Authorization", "").replace("Bearer ", "")
             try:
-                uid = ser.loads(token, max_age=86400)
+                data = ser.loads(token, max_age=86400)
             except BadSignature:
                 return jsonify(error="Please sign in again"), 401
-            u = q("SELECT id,name,email,role,department,designation,phone FROM users WHERE id=%s", (uid,), one=True)
-            if not u:
-                return jsonify(error="Please sign in again"), 401
+            if isinstance(data, dict):
+                u = {"id": data["id"], "role": data["role"]}
+            else:  # older tokens (id only): look the user up once
+                u = q("SELECT id,role FROM users WHERE id=%s", (data,), one=True)
+                if not u:
+                    return jsonify(error="Please sign in again"), 401
             if role and u["role"] != role:
                 return jsonify(error="You do not have access to this action"), 403
             g.user = u
@@ -123,6 +128,18 @@ def page(name="index.html"):
     return send_from_directory(PUBLIC, name)
 
 
+@app.get("/api/health")
+def health():
+    """Speed check: open /api/health to see how far the database is from the server (no data is shown)."""
+    _local.con = None
+    t0 = time.time(); get_con()
+    t1 = time.time(); q("SELECT 1 AS x", one=True)
+    t2 = time.time(); q("SELECT 1 AS x", one=True)
+    t3 = time.time()
+    return jsonify(connect_ms=round((t1 - t0) * 1000), first_query_ms=round((t2 - t1) * 1000),
+                   second_query_ms=round((t3 - t2) * 1000))
+
+
 @app.post("/api/login")
 def login():
     d = request.json or {}
@@ -130,13 +147,16 @@ def login():
     if not u or not check_password_hash(u["password_hash"], d.get("password", "")):
         return jsonify(error="Invalid credentials"), 401
     u.pop("password_hash")
-    return jsonify(token=ser.dumps(u["id"]), user=u)
+    return jsonify(token=ser.dumps({"id": u["id"], "role": u["role"]}), user=u)
 
 
 @app.get("/api/me")
 @auth()
 def me():
-    return jsonify(g.user)
+    u = q("SELECT id,name,email,role,department,designation,phone FROM users WHERE id=%s", (g.user["id"],), one=True)
+    if not u:
+        return jsonify(error="Please sign in again"), 401
+    return jsonify(u)
 
 
 @app.put("/api/me")
