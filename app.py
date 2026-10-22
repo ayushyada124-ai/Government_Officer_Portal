@@ -28,6 +28,9 @@ def get_con():
     con = getattr(_local, "con", None)
     if con is None:
         con = mysql.connector.connect(autocommit=True, **CFG)
+        cur = con.cursor()
+        cur.execute("SET time_zone = %s", (os.getenv("DB_TIMEZONE", "+05:30"),))
+        cur.close()
         _local.con = con
     return con
 
