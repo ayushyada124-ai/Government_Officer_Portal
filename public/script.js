@@ -155,9 +155,9 @@ V.leaves = async el => {
 
 V.news = async el => {
    const adm = S.user.role === 'admin'; let list = await api('GET', '/announcements');
-   const draw = () => $('#box').innerHTML = tbl([...(adm ? ['Officer'] : []), 'From', 'To', 'Reason', 'Status', ...(adm ? ['Decision'] : [])],
-    list.map(l => [...(adm ? [`<b>${esc(l.officer_name)}</b>`] : []), fmt(l.from_date), fmt(l.to_date), esc(l.reason), badge(l.status),
-      ...(adm ? [l.status === 'Pending' ? `<div class="acts"><button class="btn sm ok" data-s="Approved" data-id="${l.id}">Approve</button><button class="btn sm danger" data-s="Rejected" data-id="${l.id}">Reject</button></div>` : '-'] : [])]));  draw();
+   el.innerHTML = `<div class="bar-top"><h3>Department announcements</h3>${adm ? '<button class="btn" id="add">New announcement</button>' : ''}</div><div id="box" class="grid2"></div>`;
+  const draw = () => $('#box').innerHTML = list.map(a => `<div class="card"><h3>${esc(a.title)}</h3><p>${esc(a.body)}</p><div class="bar-top" style="margin-top:12px"><small class="muted">${fmt(a.created_at)}</small>${adm ? `<button class="btn sm danger" data-del="${a.id}">Delete</button>` : ''}</div></div>`).join('') || '<p class="muted">No announcements yet.</p>';
+  draw()
   $('#box').onclick = async e => { const id = e.target.dataset.del; if (id && confirm('Delete this announcement?')) { await api('DELETE', '/announcements/' + id); list = list.filter(a => a.id != id); draw(); toast('Announcement deleted'); } };
   if (adm) $('#add').onclick = () => modal('New announcement', fld('title', 'Title', 'text', 'required') + `<label>Message<textarea name="body" required></textarea></label>`,
     async d => { await api('POST', '/announcements', d); toast('Announcement posted'); V.news(el); }, 'Post announcement');
