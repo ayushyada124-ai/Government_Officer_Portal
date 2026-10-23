@@ -154,6 +154,7 @@ V.leaves = async el => {
 };
 
 V.news = async el => {
+   const adm = S.user.role === 'admin'; let list = await api('GET', '/announcements');
    const draw = () => $('#box').innerHTML = tbl([...(adm ? ['Officer'] : []), 'From', 'To', 'Reason', 'Status', ...(adm ? ['Decision'] : [])],
     list.map(l => [...(adm ? [`<b>${esc(l.officer_name)}</b>`] : []), fmt(l.from_date), fmt(l.to_date), esc(l.reason), badge(l.status),
       ...(adm ? [l.status === 'Pending' ? `<div class="acts"><button class="btn sm ok" data-s="Approved" data-id="${l.id}">Approve</button><button class="btn sm danger" data-s="Rejected" data-id="${l.id}">Reject</button></div>` : '-'] : [])]));  draw();
