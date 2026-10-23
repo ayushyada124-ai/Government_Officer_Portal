@@ -1,54 +1,90 @@
-# Government Officer Portal
+# 🏛️ Government Officers Portal
 
-Admin and Officer logins, each with its own dashboard.
-Python (Flask) backend, MySQL database, HTML/CSS/JavaScript frontend.
+### A Centralized Platform for Efficient Public Administration
 
-## Folder
-| File | What it is |
-|---|---|
-| `app.py` | Python backend and API |
-| `schema.sql` | MySQL tables (created automatically) |
-| `requirements.txt` | Python packages |
-| `Procfile` | Start command for Render, Railway and similar hosts |
-| `public/` | The website: `index.html`, `style.css`, `script.js` |
-| `docs/index.html` | Optional demo for GitHub Pages (no backend needed) |
+🌐 **Live Website:** https://government-officer-portal.vercel.app/
 
-## Settings (environment variables)
-| Name | Meaning | Default |
-|---|---|---|
-| `DB_HOST` | MySQL host | localhost |
-| `DB_PORT` | MySQL port | 3306 |
-| `DB_USER` | MySQL user | root |
-| `DB_PASSWORD` | MySQL password | (empty) |
-| `DB_NAME` | Database name (must already exist on a cloud host) | gov_portal |
-| `SECRET_KEY` | Long random text used to sign logins | change-this-secret |
+## 📌 About the Project
 
-Never write real passwords inside the code or on GitHub. Set them as environment variables.
+The Government Officers Portal is a web-based application designed
+to simplify and improve government office administration.
 
-## Run on your computer
-1. Install Python 3.9+ and MySQL 8, and start MySQL.
-2. `pip install -r requirements.txt`
-3. PowerShell: `$env:DB_USER="root"` and `$env:DB_PASSWORD="your_password"` (Command Prompt: `set DB_USER=root`, `set DB_PASSWORD=your_password`)
-4. `python app.py` then open http://localhost:5000
+The platform provides a centralized workspace for administrators
+and government officers to manage official tasks, track work progress,
+handle leave requests, and access departmental announcements.
 
-## Put it on GitHub
-Create a repository, then upload the contents of this folder (the files themselves, not the zip) with **Add file > Upload files**, or use `git add -A`, `git commit`, `git push`.
+The main objective of this project is to improve administrative
+efficiency, reduce paperwork, and make communication between
+administrators and officers more organized.
 
-## Deploy online (needs a MySQL database that is reachable from the internet)
-A MySQL on your own laptop cannot be reached by a hosting service. Create a cloud MySQL first, note its host, port, user, password and database name, and create the (empty) database in the provider's dashboard.
+## 🎯 Objectives
 
-### Vercel
-1. vercel.com > Add New > Project > import the GitHub repository (Vercel detects Flask by itself).
-2. Settings > Environment Variables: add `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SECRET_KEY`.
-3. Deploy. Tables and the two starter accounts are created on the first sign-in attempt.
+- Provide a centralized platform for government officers.
+- Simplify task assignment and progress tracking.
+- Manage employee leave applications and approvals.
+- Share important departmental announcements.
+- Improve communication between administrators and officers.
+- Reduce manual paperwork and administrative workload.
 
-### Render (or Railway)
-1. New > Web Service > connect the GitHub repository.
-2. Build command: `pip install -r requirements.txt`   Start command: `gunicorn app:app`
-3. Add the same environment variables, then deploy.
+## ✨ Features
 
-## Starter accounts (change these passwords after the first login)
-| Role | Email | Password |
-|---|---|---|
-| Admin | admin@gov.in | Admin@123 |
-| Officer | officer@gov.in | Officer@123 |
+### 👨‍💼 1. Admin Dashboard
+- Manage administrative activities.
+- Assign tasks to officers.
+- Monitor task progress.
+- Review and approve leave requests.
+- Publish departmental announcements.
+
+### 👮 2. Officer Dashboard
+- Access assigned official tasks.
+- View task details and progress.
+- Apply for leave.
+- Read departmental announcements.
+- Manage official activities through one platform.
+
+### 📋 3. Task Management
+- Assign official work to officers.
+- Track task progress.
+- Organize administrative responsibilities.
+- Improve accountability and work coordination.
+
+### 🗓️ 4. Leave Management
+- Submit leave applications.
+- Review leave requests.
+- Approve or reject applications through the admin workflow.
+
+### 📢 5. Department Announcements
+- Display important departmental notices.
+- Improve communication between administrators and officers.
+- Provide a centralized place for official updates.
+
+### 🔐 6. Login Interface
+- Separate Admin and Officer login options.
+- Email and password input fields.
+- Role-oriented access interface.
+
+**Note:** The currently deployed website provides a preview
+mode in which changes are saved only in the browser.
+A production deployment requires appropriate backend authentication,
+database storage, and server-side access control.
+
+## 🛠️ Technologies Used
+
+The following technologies may be used in the project.
+Update this list according to the actual implementation in your
+source code.
+
+- **Frontend:** HTML, CSS, JavaScript
+- **Backend:** Python and Flask (if implemented)
+- **Database:** MySQL (if implemented)
+- **Deployment:** Vercel
+- **Development Tools:** Visual Studio Code and Git
+
+## ⚙️ How to Run the Project
+
+### 1. Clone the Repository
+
+Open your terminal and execute:
+
+```bash
+git clone <YOUR_GITHUB_REPOSITORY_URL>
