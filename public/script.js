@@ -123,11 +123,11 @@ V.officers = async el => {
 V.tasks = async el => {
   const adm = S.user.role === 'admin'; let list = await api('GET', '/tasks'), f = 'All';
   el.innerHTML = `<div class="bar-top"><div class="chips">${['All', 'Pending', 'In Progress', 'Completed'].map(x => `<button class="chip${x === 'All' ? ' on' : ''}">${x}</button>`).join('')}</div>${adm ? '<button class="btn" id="add">Assign task</button>' : ''}</div><div class="card" id="box"></div>`;
-  const draw = () => $('#box').innerHTML = tbl(['Task', ...(adm ? ['Officer'] : []), 'Priority', 'Due', 'Status', ...(adm ? [''] : [])],
+    const draw = () => $('#box').innerHTML = tbl(['Task', ...(adm ? ['Officer'] : []), 'Priority', 'Due', 'Status', ...(adm ? [''] : [])],
     list.filter(t => f === 'All' || t.status === f).map(t => [`<b>${esc(t.title)}</b><small class="d">${esc(t.description)}</small>`, ...(adm ? [esc(t.officer_name)] : []), badge(t.priority), fmt(t.due_date),
-      `<select data-st="${t.id}">${['Pending', 'In Progress', 'Completed'].map(s => `<option${s === t.status ? ' selected' : ''}>${s}</option>`).join('')}</select>`, ...(adm ? [`<button class="btn sm danger" data-del="${t.id}">Delete</button>`] : [])]));
+      adm ? badge(t.status) : `<select data-st="${t.id}">${['Pending', 'In Progress', 'Completed'].map(s => `<option${s === t.status ? ' selected' : ''}>${s}</option>`).join('')}</select>`, ...(adm ? [`<button class="btn sm danger" data-del="${t.id}">Delete</button>`] : [])]));
   draw();
-  el.querySelector('.chips').onclick = e => { if (e.target.classList.contains('chip')) { f = e.target.textContent; el.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === e.target)); draw(); } };
+      el.querySelector('.chips').onclick = e => { if (e.target.classList.contains('chip')) { f = e.target.textContent; el.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === e.target)); draw(); } };
   $('#box').onchange = async e => { const id = e.target.dataset.st; if (!id) return;
     try { await api('PUT', '/tasks/' + id, {status: e.target.value}); list.find(t => t.id == id).status = e.target.value; toast('Task marked ' + e.target.value.toLowerCase()); draw(); } catch (x) { toast(x.message, 1); } };
   $('#box').onclick = async e => { const id = e.target.dataset.del;
@@ -154,10 +154,9 @@ V.leaves = async el => {
 };
 
 V.news = async el => {
-  const adm = S.user.role === 'admin'; let list = await api('GET', '/announcements');
-  el.innerHTML = `<div class="bar-top"><h3>Department announcements</h3>${adm ? '<button class="btn" id="add">New announcement</button>' : ''}</div><div id="box" class="grid2"></div>`;
-  const draw = () => $('#box').innerHTML = list.map(a => `<div class="card"><h3>${esc(a.title)}</h3><p>${esc(a.body)}</p><div class="bar-top" style="margin-top:12px"><small class="muted">${fmt(a.created_at)}</small>${adm ? `<button class="btn sm danger" data-del="${a.id}">Delete</button>` : ''}</div></div>`).join('') || '<p class="muted">No announcements yet.</p>';
-  draw();
+   const draw = () => $('#box').innerHTML = tbl([...(adm ? ['Officer'] : []), 'From', 'To', 'Reason', 'Status', ...(adm ? ['Decision'] : [])],
+    list.map(l => [...(adm ? [`<b>${esc(l.officer_name)}</b>`] : []), fmt(l.from_date), fmt(l.to_date), esc(l.reason), badge(l.status),
+      ...(adm ? [l.status === 'Pending' ? `<div class="acts"><button class="btn sm ok" data-s="Approved" data-id="${l.id}">Approve</button><button class="btn sm danger" data-s="Rejected" data-id="${l.id}">Reject</button></div>` : '-'] : [])]));  draw();
   $('#box').onclick = async e => { const id = e.target.dataset.del; if (id && confirm('Delete this announcement?')) { await api('DELETE', '/announcements/' + id); list = list.filter(a => a.id != id); draw(); toast('Announcement deleted'); } };
   if (adm) $('#add').onclick = () => modal('New announcement', fld('title', 'Title', 'text', 'required') + `<label>Message<textarea name="body" required></textarea></label>`,
     async d => { await api('POST', '/announcements', d); toast('Announcement posted'); V.news(el); }, 'Post announcement');

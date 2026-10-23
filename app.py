@@ -241,15 +241,14 @@ def add_task():
 
 
 @app.put("/api/tasks/<int:i>")
-@auth()
+@auth("officer")
 def update_task(i):
     st = (request.json or {}).get("status")
     if st not in ("Pending", "In Progress", "Completed"):
         return jsonify(error="Invalid status"), 400
-    sql, a = "UPDATE tasks SET status=%s WHERE id=%s", (st, i)
-    if g.user["role"] != "admin":
-        sql += " AND officer_id=%s"; a += (g.user["id"],)
-    q(sql, a, commit=True)
+    if not q("SELECT id FROM tasks WHERE id=%s AND officer_id=%s", (i, g.user["id"]), one=True):
+        return jsonify(error="Task not found"), 404
+    q("UPDATE tasks SET status=%s WHERE id=%s", (st, i), commit=True)
     return jsonify(ok=True)
 
 
