@@ -75,8 +75,8 @@ Update this list according to the actual implementation in your
 source code.
 
 - **Frontend:** HTML, CSS, JavaScript
-- **Backend:** Python and Flask (if implemented)
-- **Database:** MySQL (if implemented)
+- **Backend:** Python and Flask 
+- **Database:** MySQL 
 - **Deployment:** Vercel
 - **Development Tools:** Visual Studio Code and Git
 
@@ -87,4 +87,4 @@ source code.
 Open your terminal and execute:
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone <https://github.com/ayushyada124-ai/Government_Officer_Portal.git>
