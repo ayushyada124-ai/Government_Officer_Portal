@@ -13,8 +13,12 @@ try { S.token = localStorage.getItem('gp_token'); } catch (e) {}
 /* ---------- API ---------- */
 async function api(m, p, b) {
   if (window.DEMO_MODE) return new Promise((res, rej) => setTimeout(() => { try { res(route(m, p, b || {})); } catch (e) { rej(e); } }, 120));
-  const r = await fetch(BASE + p, {method: m, headers: {'Content-Type': 'application/json', ...(S.token ? {Authorization: 'Bearer ' + S.token} : {})}, body: b ? JSON.stringify(b) : undefined});
-  const d = await r.json().catch(() => ({}));
+    let r;
+  try {
+    r = await fetch(BASE + p, {method: m, headers: {'Content-Type': 'application/json', ...(S.token ? {Authorization: 'Bearer ' + S.token} : {})}, body: b ? JSON.stringify(b) : undefined});
+  } catch (e) {
+    throw new Error(navigator.onLine === false ? 'No internet connection. Please check your network and try again.' : 'Cannot reach the server. Please try again in a moment.');
+  } const d = await r.json().catch(() => ({}));
   if (!r.ok) { if (r.status === 401 && S.token) logout(); throw new Error(d.error || 'Request failed'); }
   return d;
 }
@@ -50,7 +54,7 @@ $('#loginForm').onsubmit = async e => {
     S.token = d.token; S.user = d.user;
     try { localStorage.setItem('gp_token', d.token); } catch (x) {}
     showApp();
-  } catch (x) { $('#err').textContent = x.message === 'Failed to fetch' ? 'Cannot reach the server. Start the Python backend first.' : x.message; }
+  } catch (x) { $('#err').textContent = x.message; }
 };
 function logout() {
   S.token = S.user = null; try { localStorage.removeItem('gp_token'); } catch (e) {}
