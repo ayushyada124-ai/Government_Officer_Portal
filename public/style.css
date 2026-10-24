@@ -18,7 +18,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .hero li:before{content:"\2714  ";color:var(--saf)}
 .wheel{width:88px;height:88px;stroke:#fff;fill:none;animation:spin 60s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.wheel{animation:none}}
+@media(prefers-reduced-motion:reduce){.wheel{animation:spin 60s linear infinite }}
 .box{align-self:center;justify-self:center;width:min(400px,92%);background:var(--card);padding:34px;border-radius:18px;box-shadow:var(--sh);border:1px solid var(--bd);display:grid;gap:14px;margin:30px 0}
 label{display:grid;gap:5px;font-size:.85rem;color:var(--mu);font-weight:600}
 input,select,textarea{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);width:100%}
