@@ -44,17 +44,22 @@ document.querySelectorAll('.wheel').forEach(w => {
 function setRole(r) {
   S.role = r;
   document.querySelectorAll('#roleTabs button').forEach(b => b.classList.toggle('on', b.dataset.r === r));
-  const f = $('#loginForm'); f.email.value = ''; f.password.value = ''; $('#err').textContent = '';
+  const f = $('#loginForm'); f.email.value = ''; f.password.value = ''; $('#err').textContent = ''; $('#info').textContent = '';
 }
 $('#roleTabs').onclick = e => e.target.dataset.r && setRole(e.target.dataset.r);
 $('#loginForm').onsubmit = async e => {
-  e.preventDefault(); const f = e.target;
+  e.preventDefault(); const f = e.target; $('#info').textContent = '';
   try {
     const d = await api('POST', '/login', {email: f.email.value, password: f.password.value, role: S.role});
     S.token = d.token; S.user = d.user;
     try { localStorage.setItem('gp_token', d.token); } catch (x) {}
     showApp();
   } catch (x) { $('#err').textContent = x.message; }
+};
+$('#regLink').onclick = e => {
+  e.preventDefault();
+  modal('Register as an officer', fld('name', 'Full name', 'text', 'required') + fld('email', 'Email', 'email', 'required') + fld('password', 'Password (6+ characters)', 'password', 'required minlength="6"') + fld('department', 'Department') + fld('designation', 'Designation') + fld('phone', 'Phone', 'tel'),
+    async d => { const r = await api('POST', '/register', d); $('#err').textContent = ''; $('#info').textContent = r.message || 'Registration sent. You can sign in after the admin approves it.'; }, 'Send registration');
 };
 function logout() {
   S.token = S.user = null; try { localStorage.removeItem('gp_token'); } catch (e) {}
@@ -63,7 +68,7 @@ function logout() {
 
 /* ---------- Shell ---------- */
 const NAV = {
-  admin: [['dashboard','🏠','Dashboard'],['officers','👥','Officers'],['tasks','📋','Tasks'],['leaves','🗓️','Leave requests'],['attendance','🕘','Attendance'],['reports','📈','Reports'],['news','📢','Announcements'],['profile','👤','My profile']],
+  admin: [['dashboard','🏠','Dashboard'],['officers','👥','Officers'],['registrations','📝','Registrations'],['tasks','📋','Tasks'],['leaves','🗓️','Leave requests'],['attendance','🕘','Attendance'],['reports','📈','Reports'],['news','📢','Announcements'],['profile','👤','My profile']],
   officer: [['dashboard','🏠','Dashboard'],['tasks','📋','My tasks'],['leaves','🗓️','My leave'],['attendance','🕘','My attendance'],['news','📢','Announcements'],['profile','👤','My profile']]
 };
 function showApp() {
@@ -76,6 +81,16 @@ function showApp() {
   $('#side').querySelector('nav').onclick = e => { const b = e.target.closest('.nv'); b && go(b.dataset.v); };
   $('#out').onclick = logout;
   go('dashboard');
+  regBadge();
+}
+async function regBadge() {  // shows how many registrations are waiting next to the menu item
+  if (!S.user || S.user.role !== 'admin') return;
+  try {
+    const n = (await api('GET', '/registrations')).filter(r => r.status === 'Pending').length;
+    const b = document.querySelector('.nv[data-v=registrations]'); if (!b) return;
+    const old = b.querySelector('.cnt'); if (old) old.remove();
+    if (n) b.insertAdjacentHTML('beforeend', `<span class="cnt">${n}</span>`);
+  } catch (e) {}
 }
 $('#burger').onclick = () => $('#side').classList.toggle('open');
 async function go(v) {
@@ -168,6 +183,22 @@ V.profile = async el => {
   el.innerHTML = `<div class="card prof"><div class="av">${esc(u.name[0])}</div><div><h3>${esc(u.name)}</h3><p class="muted">${esc(u.designation)}, ${esc(u.department)}</p><p>✉️ ${esc(u.email)}</p><p>🛡️ ${u.role === 'admin' ? 'Administrator' : 'Government officer'}</p></div></div>
     <form class="card" id="pf" style="display:grid;gap:12px;max-width:460px"><h3>Update my details</h3>${fld('phone', 'Phone', 'tel', `value="${esc(u.phone)}"`)}${fld('password', 'New password (leave blank to keep current)', 'password', 'minlength="6"')}<button class="btn">Save changes</button></form>`;
   $('#pf').onsubmit = async e => { e.preventDefault(); try { S.user = await api('PUT', '/me', Object.fromEntries(new FormData(e.target))); toast('Profile saved'); V.profile(el); } catch (x) { toast(x.message, 1); } };
+};
+
+V.registrations = async el => {
+  let list = await api('GET', '/registrations');
+  el.innerHTML = `<div class="bar-top"><h3>Officer registration requests</h3></div><div class="card" id="box"></div>`;
+  const draw = () => $('#box').innerHTML = tbl(['Name', 'Email', 'Department', 'Designation', 'Phone', 'Applied', 'Status', 'Decision'],
+    list.map(r => [`<b>${esc(r.name)}</b>`, esc(r.email), esc(r.department) || '-', esc(r.designation) || '-', esc(r.phone) || '-', fmt(r.created_at), badge(r.status),
+      `<div class="acts"><button class="btn sm ok" data-s="Approved" data-id="${r.id}">Approve</button>${r.status === 'Pending' ? `<button class="btn sm danger" data-s="Rejected" data-id="${r.id}">Reject</button>` : ''}</div>`]));
+  draw();
+  $('#box').onclick = async e => { const {s, id} = e.target.dataset; if (!s) return;
+    try {
+      await api('PUT', '/registrations/' + id, {status: s});
+      toast(s === 'Approved' ? 'Officer approved. They can sign in now.' : 'Registration rejected');
+      list = s === 'Approved' ? list.filter(r => r.id != id) : list.map(r => r.id == id ? {...r, status: 'Rejected'} : r);
+      draw(); regBadge();
+    } catch (x) { toast(x.message, 1); } };
 };
 
 /* ---------- Attendance ---------- */

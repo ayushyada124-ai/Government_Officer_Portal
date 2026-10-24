@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   department VARCHAR(100) DEFAULT '',
   designation VARCHAR(100) DEFAULT '',
   phone VARCHAR(20) DEFAULT '',
+  status ENUM('Pending','Approved','Rejected') NOT NULL DEFAULT 'Approved',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS tasks (

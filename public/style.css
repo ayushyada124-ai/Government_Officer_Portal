@@ -104,3 +104,8 @@ td select{padding:6px 8px;width:auto}
 .stk i{display:block}
 .acts{display:flex;gap:6px;flex-wrap:nowrap}
 .acts .btn{white-space:nowrap}
+.info{color:var(--grn);font-size:.88rem}
+.info:empty{display:none}
+.reg{text-align:center;font-size:.9rem;color:var(--mu)}
+.reg a{color:var(--tx);font-weight:600;text-decoration:underline}
+.nv .cnt{margin-left:auto;background:var(--saf);color:#fff;border-radius:10px;padding:0 8px;font-size:.75rem;font-weight:700}

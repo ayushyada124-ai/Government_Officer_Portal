@@ -1,6 +1,7 @@
 """Government Officer Portal - Flask + MySQL (single folder).
 Run:  python app.py   then open http://localhost:5000
 """
+import os, re, functools, threading, time
 import os, functools, threading, time
 import mysql.connector
 from flask import Flask, request, jsonify, g, abort, send_from_directory
@@ -71,6 +72,10 @@ def init_db():
         for stmt in open(os.path.join(HERE, "schema.sql")).read().split(";"):
             if stmt.strip():
                 cur.execute(stmt)
+        con.commit()
+    cur.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=%s AND table_name='users' AND column_name='status'", (CFG["database"],))
+    if cur.fetchone()[0] == 0:  # older database: existing users stay Approved
+        cur.execute("ALTER TABLE users ADD COLUMN status ENUM('Pending','Approved','Rejected') NOT NULL DEFAULT 'Approved'")
         con.commit()
     cur.close(); con.close()
     if not q("SELECT id FROM users LIMIT 1", one=True):
@@ -149,6 +154,10 @@ def login():
     u = q("SELECT * FROM users WHERE email=%s AND role=%s", (d.get("email", "").strip().lower(), d.get("role")), one=True)
     if not u or not check_password_hash(u["password_hash"], d.get("password", "")):
         return jsonify(error="Invalid credentials"), 401
+    if u.get("status") == "Pending":
+        return jsonify(error="Your registration is waiting for admin approval. Please try again later."), 403
+    if u.get("status") == "Rejected":
+        return jsonify(error="Your registration was not approved. Please contact the admin."), 403
     u.pop("password_hash")
     return jsonify(token=ser.dumps({"id": u["id"], "role": u["role"]}), user=u)
 
@@ -185,8 +194,7 @@ def stats():
     r = dict(tasks=int(t["total"]), pending=int(t["pending"] or 0), progress=int(t["progress"] or 0),
              completed=int(t["completed"] or 0), pending_leaves=int(l["pending"] or 0))
     if adm:
-        r["officers"] = cnt("SELECT COUNT(*) c FROM users WHERE role='officer'")
-    else:
+        r["officers"] = cnt("SELECT COUNT(*) c FROM users WHERE role='officer' AND status='Approved'")
         r["leaves"] = int(l["total"])
     return jsonify(r)
 
@@ -195,8 +203,7 @@ def stats():
 @app.get("/api/officers")
 @auth("admin")
 def officers():
-    return jsonify(q("SELECT id,name,email,department,designation,phone FROM users WHERE role='officer' ORDER BY id DESC"))
-
+    return jsonify(q("SELECT id,name,email,department,designation,phone FROM users WHERE role='officer' AND status='Approved' ORDER BY id DESC"))
 
 @app.post("/api/officers")
 @auth("admin")
@@ -218,6 +225,46 @@ def del_officer(i):
     q("DELETE FROM users WHERE id=%s AND role='officer'", (i,), commit=True)
     return jsonify(ok=True)
 
+# ---------- Officer self-registration (public) and admin approval ----------
+@app.post("/api/register")
+def register():
+    d = request.json or {}
+    name, email = (d.get("name") or "").strip(), (d.get("email") or "").strip().lower()
+    password = d.get("password") or ""
+    if not name or not email or not password:
+        return jsonify(error="Name, email and password are required"), 400
+    if len(name) > 100 or len(email) > 120 or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify(error="Enter a valid name and email address"), 400
+    if len(password) < 6:
+        return jsonify(error="Password must be at least 6 characters"), 400
+    if q("SELECT id FROM users WHERE email=%s", (email,), one=True):
+        return jsonify(error="This email is already registered"), 409
+    if cnt("SELECT COUNT(*) c FROM users WHERE status='Pending'") >= 100:
+        return jsonify(error="Too many registrations are waiting. Please try again later."), 429
+    q("INSERT INTO users(name,email,password_hash,role,department,designation,phone,status) "
+      "VALUES(%s,%s,%s,'officer',%s,%s,%s,'Pending')",
+      (name, email, generate_password_hash(password), (d.get("department") or "").strip()[:100],
+       (d.get("designation") or "").strip()[:100], (d.get("phone") or "").strip()[:20]), commit=True)
+    return jsonify(ok=True, message="Registration sent. You can sign in after the admin approves it."), 201
+
+
+@app.get("/api/registrations")
+@auth("admin")
+def registrations():
+    return jsonify(q("SELECT id,name,email,department,designation,phone,status,created_at FROM users "
+                     "WHERE role='officer' AND status<>'Approved' ORDER BY (status='Pending') DESC, id DESC LIMIT 200"))
+
+
+@app.put("/api/registrations/<int:i>")
+@auth("admin")
+def decide_registration(i):
+    st = (request.json or {}).get("status")
+    if st not in ("Approved", "Rejected"):
+        return jsonify(error="Invalid status"), 400
+    if not q("SELECT id FROM users WHERE id=%s AND role='officer' AND status<>'Approved'", (i,), one=True):
+        return jsonify(error="Registration not found"), 404
+    q("UPDATE users SET status=%s WHERE id=%s", (st, i), commit=True)
+    return jsonify(ok=True)
 
 # ---------- Tasks ----------
 @app.get("/api/tasks")
@@ -360,7 +407,7 @@ def reports():
           (SELECT COUNT(*) FROM attendance a WHERE a.officer_id=u.id
              AND MONTH(a.att_date)=MONTH(CURDATE()) AND YEAR(a.att_date)=YEAR(CURDATE())) AS present
         FROM users u LEFT JOIN tasks t ON t.officer_id=u.id
-        WHERE u.role='officer' GROUP BY u.id, u.name, u.department ORDER BY u.name"""))
+        WHERE u.role='officer' AND u.status='Approved' GROUP BY u.id, u.name, u.department ORDER BY u.name"""))
 
 
 if __name__ == "__main__":
