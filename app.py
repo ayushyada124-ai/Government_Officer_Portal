@@ -195,6 +195,7 @@ def stats():
              completed=int(t["completed"] or 0), pending_leaves=int(l["pending"] or 0))
     if adm:
         r["officers"] = cnt("SELECT COUNT(*) c FROM users WHERE role='officer' AND status='Approved'")
+    else:
         r["leaves"] = int(l["total"])
     return jsonify(r)
 
