@@ -249,77 +249,7 @@ V.reports = async el => {
   };
 };
 
-/* ---------- Browser demo backend (only used when DEMO_MODE is true) ---------- */
-const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
-const seed = () => ({seq: 100,
-  users: [
-    {id: 1, name: 'System Admin', email: 'admin@gov.in', password: 'Admin@123', role: 'admin', department: 'Administration', designation: 'Administrator', phone: ''},
-    {id: 2, name: 'Rahul Sharma', email: 'officer@gov.in', password: 'Officer@123', role: 'officer', department: 'Revenue', designation: 'District Officer', phone: '9876543210'},
-    {id: 3, name: 'Priya Nair', email: 'priya@gov.in', password: 'Priya@123', role: 'officer', department: 'Health', designation: 'Block Health Officer', phone: '9822001122'},
-    {id: 4, name: 'Amit Verma', email: 'amit@gov.in', password: 'Amit@123', role: 'officer', department: 'Public Works', designation: 'Junior Engineer', phone: '9890011223'}],
-  tasks: [
-    {id: 11, title: 'Verify land records for Ward 7', description: 'Cross-check 120 mutation entries with the tehsil register.', officer_id: 2, priority: 'High', status: 'In Progress', due_date: day(3)},
-    {id: 12, title: 'Submit monthly revenue report', description: 'Collection summary for the district.', officer_id: 2, priority: 'Medium', status: 'Pending', due_date: day(7)},
-    {id: 13, title: 'Inspect vaccination camp', description: 'Visit three camps and file the inspection form.', officer_id: 3, priority: 'High', status: 'Pending', due_date: day(2)},
-    {id: 14, title: 'Road repair estimate, MG Road', description: 'Prepare cost estimate and photographs.', officer_id: 4, priority: 'Low', status: 'Completed', due_date: day(-2)}],
-  leaves: [
-    {id: 21, officer_id: 2, from_date: day(10), to_date: day(12), reason: 'Family function', status: 'Pending'},
-    {id: 22, officer_id: 3, from_date: day(15), to_date: day(16), reason: 'Medical appointment', status: 'Pending'},
-    {id: 23, officer_id: 4, from_date: day(-12), to_date: day(-10), reason: 'Personal work', status: 'Approved'}],
-  att: [
-    {id: 41, officer_id: 2, att_date: day(-1), check_in: '09:12', check_out: '17:35'},
-    {id: 42, officer_id: 3, att_date: day(-1), check_in: '09:40', check_out: '17:10'},
-    {id: 43, officer_id: 4, att_date: day(-2), check_in: '09:05', check_out: '16:50'}],
-  ann: [
-    {id: 31, title: 'Office timings during festival week', body: 'Offices will work 10:00 to 16:00 from Monday to Friday.', created_at: day(-1)},
-    {id: 32, title: 'Submit property returns by month end', body: 'All officers must file annual property returns on the HR desk.', created_at: day(-4)}]});
-let DB; try { DB = JSON.parse(localStorage.getItem('gp_demo')); } catch (e) {} DB = DB || seed(); DB.att = DB.att || [];
-const save = () => { try { localStorage.setItem('gp_demo', JSON.stringify(DB)); } catch (e) {} };
-function route(m, p, b) {
-  const [, a, id] = p.split('/'), uid = +(S.token || '').split('-')[1], me = DB.users.find(u => u.id === uid), k = m + ' ' + a, adm = me && me.role === 'admin';
-  const pub = ({password, ...r}) => r, nm = i => (DB.users.find(u => u.id == i) || {}).name, now = () => new Date().toISOString();
-  const need = r => { if (!me || (r && me.role !== r)) throw Error('You do not have access to this action'); };
-  const mine = l => adm ? l : l.filter(x => x.officer_id === me.id);
-  if (k === 'POST login') {
-    const u = DB.users.find(u => u.email === (b.email || '').toLowerCase() && u.role === b.role && u.password === b.password);
-    if (!u) throw Error('Invalid credentials'); S.token = 'demo-' + u.id; return {token: S.token, user: pub(u)};
-  }
-  need();
-  switch (k) {
-    case 'GET me': return pub(me);
-    case 'PUT me': if (b.phone !== undefined) me.phone = b.phone; if (b.password) me.password = b.password; save(); return pub(me);
-    case 'GET stats': { const t = mine(DB.tasks), c = s => t.filter(x => x.status === s).length, L = mine(DB.leaves);
-      return {tasks: t.length, pending: c('Pending'), progress: c('In Progress'), completed: c('Completed'), pending_leaves: L.filter(x => x.status === 'Pending').length, officers: DB.users.filter(u => u.role === 'officer').length, leaves: L.length}; }
-    case 'GET officers': need('admin'); return DB.users.filter(u => u.role === 'officer').map(pub).reverse();
-    case 'POST officers': need('admin');
-      if (!b.name || !b.email || !b.password || b.password.length < 6) throw Error('Name, email and a password (6+ characters) are required');
-      if (DB.users.some(u => u.email === b.email.toLowerCase())) throw Error('Email already exists');
-      DB.users.push({...b, email: b.email.toLowerCase(), id: ++DB.seq, role: 'officer'}); break;
-    case 'DELETE officers': need('admin'); DB.users = DB.users.filter(u => u.id != id); DB.tasks = DB.tasks.filter(t => t.officer_id != id); DB.leaves = DB.leaves.filter(l => l.officer_id != id); break;
-    case 'GET tasks': return mine(DB.tasks).map(t => ({...t, officer_name: nm(t.officer_id)})).reverse();
-    case 'POST tasks': need('admin'); if (!b.title || !b.officer_id) throw Error('Title and officer are required');
-      DB.tasks.push({...b, id: ++DB.seq, officer_id: +b.officer_id, status: 'Pending', created_at: now()}); break;
-    case 'PUT tasks': { const t = DB.tasks.find(x => x.id == id); if (!t || (!adm && t.officer_id !== me.id)) throw Error('Task not found'); t.status = b.status; break; }
-    case 'DELETE tasks': need('admin'); DB.tasks = DB.tasks.filter(t => t.id != id); break;
-    case 'GET leaves': return mine(DB.leaves).map(l => ({...l, officer_name: nm(l.officer_id)})).reverse();
-    case 'POST leaves': need('officer'); if (!b.from_date || !b.to_date || !b.reason || b.to_date < b.from_date) throw Error('Enter valid dates and a reason');
-      DB.leaves.push({...b, id: ++DB.seq, officer_id: me.id, status: 'Pending', created_at: now()}); break;
-    case 'PUT leaves': need('admin'); DB.leaves.find(x => x.id == id).status = b.status; break;
-    case 'GET announcements': return [...DB.ann].reverse();
-    case 'POST announcements': need('admin'); if (!b.title || !b.body) throw Error('Title and message are required'); DB.ann.push({...b, id: ++DB.seq, created_at: now()}); break;
-    case 'DELETE announcements': need('admin'); DB.ann = DB.ann.filter(a => a.id != id); break;
-    case 'GET attendance': return mine(DB.att).map(a => ({...a, officer_name: nm(a.officer_id)})).reverse();
-    case 'POST attendance': { need('officer'); const t = today(), r = DB.att.find(x => x.officer_id === me.id && x.att_date === t), hhmm = new Date().toTimeString().slice(0, 5);
-      if (id === 'checkin') { if (r) throw Error('You have already checked in today'); DB.att.push({id: ++DB.seq, officer_id: me.id, att_date: t, check_in: hhmm, check_out: null}); }
-      else { if (!r) throw Error('Check in first'); if (r.check_out) throw Error('You have already checked out today'); r.check_out = hhmm; } break; }
-    case 'GET reports': need('admin'); return DB.users.filter(u => u.role === 'officer').map(u => { const t = DB.tasks.filter(x => x.officer_id === u.id), c = s => t.filter(x => x.status === s).length;
-      return {id: u.id, name: u.name, department: u.department, total: t.length, completed: c('Completed'), progress: c('In Progress'), pending: c('Pending'),
-        overdue: t.filter(x => x.status !== 'Completed' && x.due_date && x.due_date < today()).length,
-        present: DB.att.filter(a => a.officer_id === u.id && a.att_date.slice(0, 7) === today().slice(0, 7)).length}; });
-    default: throw Error('Not found');
-  }
-  save(); return {ok: true};
-}
+
 
 /* ---------- Start ---------- */
 $('#demoNote').hidden = !window.DEMO_MODE;

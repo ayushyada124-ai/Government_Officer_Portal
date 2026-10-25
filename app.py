@@ -79,8 +79,7 @@ def init_db():
         con.commit()
     cur.close(); con.close()
     if not q("SELECT id FROM users LIMIT 1", one=True):
-        seed = [("System Admin", "admin@gov.in", "Admin@123", "admin", "Administration", "Administrator"),
-                ("Rahul Sharma", "officer@gov.in", "Officer@123", "officer", "Revenue", "District Officer")]
+        seed = [("System Admin", "admin@gov.in", "Admin@123", "admin", "Administration", "Administrator")]
         for n, e, p, r, d, ds in seed:
             q("INSERT INTO users(name,email,password_hash,role,department,designation) VALUES(%s,%s,%s,%s,%s,%s)",
               (n, e, generate_password_hash(p), r, d, ds), commit=True)
